@@ -1,4 +1,5 @@
 #Preoject Euler 691 - Try again
+#CONTAINS: parition(s, t) - Quickly partition s items into t or fewer parts
 import itertools
 
 def to_group(X):

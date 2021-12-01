@@ -1,4 +1,5 @@
 # Project euler #696 Mahjong 20210503
+# CONTAINS: brute_iterate_group([],n,s,t) for brute forcing through the solution
 # This is likely to be a very long solve...
 
 def str_hand(hand):
@@ -134,25 +135,12 @@ def tree_calculate_2(n, s,t):
     print(pung_pung, pung_chow, chow_chow)
     return hands
 
-n,s,t = (4,5,3)
-q = brute_iterate_group([], n,s,t)
-print("brute (n={:}, s={:}, t={:}) winning hands: {:,}".format(n, s,t,len(q)))
-# for hand in list(q)[::int(len(q)/9)]:
-#    print(hand)
+def main():
+    n,s,t = (4,1,2)
+    q = brute_iterate_group([], n,s,t)
+    print("brute (n={:}, s={:}, t={:}) winning hands: {:,}".format(n, s,t,len(q)))
+    # for hand in list(q)[::int(len(q)/9)]:
+    #    print(hand)
 
-"""
-def string_helper(C):
-    out = []
-    for c in C:
-        out.append(str_hand(c))
-    return " ".join(out)  
-
-
-for hand in q:
-    classified = brute_classify(hand)
-    print(str_hand(hand), [string_helper(x) for x in classified])
-
-r = tree_calculate_2(n, s,t)
-print("tree  (n={:}, s={:}, t={:}) winning hands: {:,}".format(n, s,t,r))
-"""
+#main()
 
