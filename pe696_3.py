@@ -2,7 +2,7 @@
 #CONTAINS: fit_tower(tower, pair_allowed=True) - SLOW method for determining if a tower arrangement works
 #Use the "tower" method this time
 import itertools
-from pe696 import brute_iterate_group
+from pe696_0 import brute_iterate_group
 import statistics
 
 def fit_tower(tower, pair_allowed=True):
