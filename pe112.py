@@ -7,7 +7,7 @@ n_parts = [2]
 count_nonbouncy = 1
 count_bouncy = 0
 
-while count_bouncy / (count_bouncy + count_nonbouncy) != 0.9900000:
+while n < 1000: #count_bouncy / (count_bouncy + count_nonbouncy) != 0.9900000:
     if n % 1024 == 0:
         print(n, count_bouncy / (count_bouncy + count_nonbouncy))
     #Check for increasing
@@ -31,7 +31,7 @@ while count_bouncy / (count_bouncy + count_nonbouncy) != 0.9900000:
         #Is decreasing
         decreasing = True
     #Count
-    # print(n, n_parts, increacing, decreasing)
+    print(n, n_parts, increacing, decreasing)
     if increacing or decreasing:
         count_nonbouncy += 1
     else:
