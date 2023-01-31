@@ -2,31 +2,59 @@ import math
 
 from sympy.solvers.diophantine import diophantine
 from sympy import symbols
-x, y, u = symbols("x, y, u", integer=True)
+a, b, c, u = symbols("a, b, c, u", integer=True)
+
 
 num_digits = 35
+def add_to_L_list(equations):
+    L_list = []
+    for n in range(-12, 13):
+        for solutions in equations:
+            L = solutions[0].evalf(num_digits, subs={u:n})
+            B = solutions[1].evalf(num_digits, subs={u:n})
+            if L >= 1 and B >= 1:
+                # print((L,B))
+                L_list.append(L)
+    return sorted(L_list)
 
-q = diophantine(x**2 - 20*y**2 + 4, u)
-for n in range(20):
-    for solution_tuple in q:
-        solution_numeric = []
-        for variable_equation in solution_tuple:
-            numeric = variable_equation.evalf(num_digits, subs={u:n})
-            numeric_digits = len(str(int(numeric)))
-            if numeric_digits > num_digits - 2:
-                raise Exception("Need more digits.", numeric_digits, "needed.")
-            if numeric >= 0:
-                solution_numeric.append(int(numeric))
-            if len(solution_numeric) >= 2:
-                B, L = solution_numeric
-                if (B+4)%5 == 0:
-                    b = (B+4)//5
-                    print("FOUND", "B", B, ", L", L, ", b", b)
-                else:
-                    print("not found", "B", B, ", L", L)
+equations = diophantine((b/2)**2 + (b - 1)**2 - a**2, u)
+q = add_to_L_list(equations)
+# print(q)
+
+equations = diophantine((b/2)**2 + (b + 1)**2 - a**2, u)
+w = add_to_L_list(equations)
+# print(q)
+
+combined = sorted(q + w)
+print(combined[:12])
+s = 0
+for c in combined[:12]:
+    s += int(c)
+print("ANS", s)
 
 
 exit()
+
+
+
+# q = diophantine(x**2 - 20*y**2 + 4, u)
+# for n in range(20):
+#     for solution_tuple in q:
+#         solution_numeric = []
+#         for variable_equation in solution_tuple:
+#             numeric = variable_equation.evalf(num_digits, subs={u:n})
+#             numeric_digits = len(str(int(numeric)))
+#             if numeric_digits > num_digits - 2:
+#                 raise Exception("Need more digits.", numeric_digits, "needed.")
+#             if numeric >= 0:
+#                 solution_numeric.append(int(numeric))
+#             if len(solution_numeric) >= 2:
+#                 B, L = solution_numeric
+#                 if (B+4)%5 == 0:
+#                     b = (B+4)//5
+#                     print("FOUND", "B", B, ", L", L, ", b", b)
+#                 else:
+#                     print("not found", "B", B, ", L", L)
 
 def isSquare(n):
     ## Trivial checks
