@@ -74,6 +74,8 @@ P0E and P1E = P0E + P1E - P0E*P(1E | 0E)
     = 1 - P1F + P1F
     P(1F | 0E) = P1F/(1-P0F)
     P(1E | 0E) = 1 - P1F/(1-P0F)
+
+THOUGHT ABOUT THE ADDITION OF EACH FLEA INDEPENDENTLY
 '''
 
 import numpy as np
