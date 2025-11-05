@@ -3,13 +3,13 @@
 import math
 import numpy as np
 
-N = 2*10**3
+N = 1*10**8
 
 count_slow = [0]*5
 if N < 10**4:
     for a in range(1, N + 1):
-        for b in range(a, N + 1):
-            for c in range(b, N + 1):
+        for b in range(a, N + 1 - 2*a):
+            for c in range(b, N + 1 - a - b):
                 if a + b <= c:
                     break
                 if ((a + b)*(a + c)) % (b*c) == 0:
@@ -161,8 +161,8 @@ def count_scenario_2(kb, kbp, fast_n_flag = True, fast_n_check = False):
         # Confirm a <= b
         if (k-2)*f*1 > kb*f**2:
             break #f too large
-        # Confirm b <= N
-        if f*1 + kb*f**2 > N*(k-1):
+        # Confirm a + 2 + b <= N; assuming m = 1, n = 1
+        if (k+1)*f*1 + 2*kb*f**2 > N*(k-1):
             break #f too large
         m = 0
         while True: #m loop
@@ -173,8 +173,8 @@ def count_scenario_2(kb, kbp, fast_n_flag = True, fast_n_check = False):
             # Confirm b <= c
             if kb*f**2 > kbp*m**2:
                 continue #m too small
-            # Confirm c <= N
-            if f*m + kbp*m**2 > N*(k-1):
+            # Confirm a + b + c <= N asssuming n = 1
+            if (k+1)*f*m + kb*f**2 + kbp*m**2 > N*(k-1):
                 break #m too large
             # Confirm c < a + b
             if kbp*m**2 >= (k-1)*f*m + kb*f**2:
@@ -182,10 +182,7 @@ def count_scenario_2(kb, kbp, fast_n_flag = True, fast_n_check = False):
             #Now Iterate through allowable n
             n = 0
             if fast_n_flag:
-                n_max = N*(k-1)//(f*m + kbp*m**2)
-                # if n_max == 1:
-                #     count += 1
-                # else:
+                n_max = N*(k-1)//((k+1)*f*m + kb*f**2 + kbp*m**2)
                 require_even = (k == 3 and (math.gcd(f*m + kb*f**2, 2) == 1 or math.gcd(f*m + kbp*m**2, 2) == 1))
                 if n_max == 1:
                     if require_even == False:
@@ -200,7 +197,7 @@ def count_scenario_2(kb, kbp, fast_n_flag = True, fast_n_check = False):
                     if fast_n_check:
                         q.append(False)
                     # c <= N
-                    if (f*m + kbp*m**2)*n > N*(k-1):
+                    if ((k-1)*f*m + f*m + kb*f**2 + f*m + kbp*m**2)*n > N*(k-1):
                         break #n too large
                     # gcd(n, k) == 1
                     if math.gcd(n, k) != 1:
@@ -229,7 +226,7 @@ count_fast = [0]*5
 for k in [2, 3]:
     count_fast[k] += count_scenario_2(k, 1, True, True)
     count_fast[k] += count_scenario_2(1, k, True, True)
-count_fast[4] = N
+count_fast[4] = N//3
 print("slow:", count_slow, sum(count_slow))
 print("new:", count_fast, sum(count_fast))
 #356760665 is incorrect
