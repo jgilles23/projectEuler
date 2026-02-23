@@ -34,8 +34,6 @@ class GameState:
         #Start at negative trick number based on number of starting exchanges
         #Trump suit set is trick -5, kitty exchange is trick -4 -3 -2 -1, so that the first trick after exchanges is trick 0
         self.trick_number = -5 + -1*sum([x for x in starting_exchanges if x > 0])
-        
-        
         # Shuffle and deal the deck
         self._shuffle_and_deal()
     
@@ -88,7 +86,7 @@ class GameState:
         new_state.starting_exchanges_complete_flag = self.starting_exchanges_complete_flag
         new_state.kitty_exchange_complete_flag = self.kitty_exchange_complete_flag
         new_state.dealer_exchanged_into_kitty = self.dealer_exchanged_into_kitty.copy()
-        new_state.dealer_removed_from_kitty = self.dealer_removed_from_kitty.copy()
+        new_state.dealer_removed_from_kitty = copy.deepcopy(self.dealer_removed_from_kitty)
         new_state.starting_exchanges_complete = copy.deepcopy(self.starting_exchanges_complete)
         new_state.dealer_revealed_kitty_cards = copy.deepcopy(self.dealer_revealed_kitty_cards)
         return new_state
@@ -97,19 +95,26 @@ class GameState:
         return self.formatted_string_2()
     
     def card_to_string(self, card):
+        if card is None:
+            return "??"
         return str(card//100) + "0023456789TJQKA"[(card % 100)]
     
     def formatted_string_2(self, color_flag=False):
         #Format setter, operated on each symbol to properly format the symbol and coloring
-        def format_set(text:str, to_lower:bool):
+        def format_set(text:str, highlight, header_flag = False):
             # text: string to format
-            # to_lower: flag to lower case the symbol and color if applicable, for showing previous rounds
-            if to_lower:
+            # highlight: 0 for no highlight, 1 for highlight in lowercase, 2 for highlight in uppercase
+            if highlight == 0:
+                return text
+            elif not header_flag:
+                return text
+            elif highlight == 1:
                 if text == "#":
                     return "+"
                 else:
                     return text.lower()
-            return text
+            elif highlight == 2:
+                return text
         first_trick = -5 + -1*sum([x for x in self.starting_exchanges if x > 0])
         current_trick = self.trick_history[-1]
         lead_player = self.lead_history[-1]
@@ -126,41 +131,58 @@ class GameState:
         for player in range(3):
             turn_marker = "*" if player == self.current_player else " "
             s["intro"][player] = f"  {turn_marker}{player_names[player]} {self.starting_exchanges[player]:+d} ({self.scores[player]}/{[5, 3, 8][player]}):"
-        #Setup what is shown for each card in the state as a baseline
-        for player in range(3):
-            for suit in range(4):
-                for card in self.hands[player][suit]:
-                    s["state"][suit][card % 100][player] = self.card_to_string(card)[1]
-        def mark_player_exhange(exchange_complete, to_lower = False):
-            F = lambda text: format_set(text, to_lower=to_lower)
+        #Setup what is shown for each card in the state as a baseline, take into account known information about what has been played
+        #Start by assuming we don't know where anything is
+        for suit in range(4):
+            for card in range(2, 15):
+                for player in range(3):
+                    if player == self.current_player:
+                        s["state"][suit][card][player] = "."
+                    else:
+                        s["state"][suit][card][player] = "?"
+        #Handle cards with unknown positions
+        def filter_unknown(card):
+            if card is None:
+                return True
+            for player in range(3):
+                s["state"][card // 100][card % 100][player] = "." #Card position known, override the "?"
+        #Mark player exchanges
+        def mark_player_exhange(exchange_complete, highlight):
             high_player, card_given, low_player, card_returned = exchange_complete
-            if card_given == card_returned:
-                s["state"][card_given // 100][card_given % 100]["header"] = F("E")
-                s["state"][card_given // 100][card_given % 100][high_player] = F(self.card_to_string(card_given)[1])
-                s["state"][card_given // 100][card_given % 100][low_player] = F("#")
+            if filter_unknown(card_given) or filter_unknown(card_returned): #Returns or marks with "."
+                return
+            elif card_given == card_returned:
+                if highlight != 0: s["state"][card_given // 100][card_given % 100]["header"] = format_set("E", highlight, True)
+                s["state"][card_given // 100][card_given % 100][high_player] = format_set(self.card_to_string(card_given)[1], highlight)
+                if highlight != 0: s["state"][card_given // 100][card_given % 100][low_player] = format_set("#", highlight)
             else:
-                s["state"][card_given // 100][card_given % 100]["header"] = F("G")
-                s["state"][card_given // 100][card_given % 100][high_player] = F("#")
-                s["state"][card_given // 100][card_given % 100][low_player] = F(self.card_to_string(card_given)[1])
-                s["state"][card_returned // 100][card_returned % 100]["header"] = F("T")
-                s["state"][card_returned // 100][card_returned % 100][high_player] = F(self.card_to_string(card_returned)[1])
-                s["state"][card_returned // 100][card_returned % 100][low_player] = F("#")
-        def mark_into_kitty(card, to_lower = False):
-            F = lambda text: format_set(text, to_lower=to_lower)
-            s["state"][card // 100][card % 100]["header"] = F("K")
-            s["state"][card // 100][card % 100][DEALER] = F("#")
-        def mark_removed_from_kitty(card, to_lower = False):
-            F = lambda text: format_set(text, to_lower=to_lower)
-            s["state"][card // 100][card % 100]["header"] = F("R")
-            s["state"][card // 100][card % 100][DEALER] = F(self.card_to_string(card)[1])
+                if highlight != 0: s["state"][card_given // 100][card_given % 100]["header"] = format_set("G", highlight, True)
+                if highlight != 0: s["state"][card_given // 100][card_given % 100][high_player] = format_set("#", highlight)
+                s["state"][card_given // 100][card_given % 100][low_player] = format_set(self.card_to_string(card_given)[1], highlight)
+                if highlight != 0: s["state"][card_returned // 100][card_returned % 100]["header"] = format_set("T", highlight, True)
+                s["state"][card_returned // 100][card_returned % 100][high_player] = format_set(self.card_to_string(card_returned)[1], highlight)
+                if highlight != 0: s["state"][card_returned // 100][card_returned % 100][low_player] = format_set("#", highlight)
+        def mark_into_kitty(card, highlight):
+            if filter_unknown(card):#Returns or marks with "."
+                return
+            if highlight != 0: s["state"][card // 100][card % 100]["header"] = format_set("K", highlight, True)
+            if highlight != 0: s["state"][card // 100][card % 100]["header"] = format_set("K", highlight, True)
+            if highlight != 0: s["state"][card // 100][card % 100][DEALER] = format_set("#", highlight)
+        def mark_removed_from_kitty(card, highlight):
+            if filter_unknown(card): #Returns or marks with "."
+                return
+            if highlight != 0: s["state"][card // 100][card % 100]["header"] = format_set("R", highlight, True)
+            s["state"][card // 100][card % 100][DEALER] = format_set(self.card_to_string(card)[1], highlight)
             #See if the card was revealed
             for player_seeing_card, card_shown in self.dealer_revealed_kitty_cards:
                 if card_shown == card:
-                    s["state"] [card // 100][card % 100]["header"] = F("S") #S for shown
-                    s["state"][card // 100][card % 100][player_seeing_card] = F(f"o")
-                    break #Skips further checks since the card only needs to be revealed once
-        def mark_trick(leader, winner, trick, to_lower = False):
-            F = lambda text: format_set(text, to_lower=to_lower)
+                    if highlight != 0: s["state"] [card // 100][card % 100]["header"] = format_set("S", highlight, True) #S for shown
+                if highlight != 0: s["state"][card // 100][card % 100][player_seeing_card] = format_set("o", highlight)
+                break #Skips further checks since the card only needs to be revealed once
+        def mark_trick(leader, winner, trick, highlight):
+            for card in trick:
+                if filter_unknown(card): #Returns or marks with "."
+                    return
             trick_player_order = [(leader + i) % 3 for i in range(3)]
             for player, card in zip(trick_player_order, trick):
                 if player == leader and player == winner:
@@ -171,39 +193,61 @@ class GameState:
                     char = "W"
                 else:
                     char = "F"
-                s["state"][card // 100][card % 100]["header"] = F(char)
-                s["state"][card // 100][card % 100][player] = F("#")
-        #Choose what to display
-        #   -8 -7 -6 -5 -4 -3 -2 -1 0 1 2 3 4 5 6 7
-        # 
+                if highlight != 0: s["state"][card // 100][card % 100]["header"] = format_set(char, highlight, True)
+                if highlight != 0: s["state"][card // 100][card % 100][player] = format_set("#", highlight)
+        #GO THROUGH THE FULL HISTORY
+        #Mark all exchanged cards
+        for exchange_complete in self.starting_exchanges_complete:
+            mark_player_exhange(exchange_complete, highlight = 0)
+        #Mark all kitty exchanged cards
+        for card in self.dealer_exchanged_into_kitty:
+            mark_into_kitty(card, highlight = 0)
+        for card in [item for sublist in self.dealer_removed_from_kitty for item in sublist]:
+            mark_removed_from_kitty(card, highlight = 0)
+        #Mark all hands
+        for player in range(3):
+            for suit in range(4):
+                for card in self.hands[player][suit]:
+                    filter_unknown(card) #Returns or marks with "."
+                    s["state"][card // 100][card % 100][player] = format_set(self.card_to_string(card)[1], 0)
+        #Mark all played tricks
+        for i, trick in enumerate(self.trick_history):
+            leader = self.lead_history[i]
+            if i < len(self.trick_history) - 1:
+                #For all but the current trick, we know the winner
+                winner = self.lead_history[i + 1]
+            else:
+                winner = None
+            mark_trick(leader, winner, trick, highlight = 0)
+        #NOW ACTUALLY HIGHLIGHT
         #Mark locations based on the current state of the game
         if self.trick_number < -4:
             #Show the exchanges between players
             for exchange_complete in self.starting_exchanges_complete:
-                mark_player_exhange(exchange_complete, to_lower = exchange_complete != self.starting_exchanges_complete[-1])
+                mark_player_exhange(exchange_complete, highlight = 1 + (exchange_complete == self.starting_exchanges_complete[-1]))
         elif self.trick_number <= 0 and len(current_trick) == 0:
             #Show the exchanges with the kitty by the dealer
             for card in self.dealer_exchanged_into_kitty:
-                mark_into_kitty(card, to_lower = card != self.dealer_exchanged_into_kitty[-1])
+                mark_into_kitty(card, highlight = 1 + (card == self.dealer_exchanged_into_kitty[-1]))
             #Show cards that the dealer gets back
             for card in [item for sublist in self.dealer_removed_from_kitty for item in sublist]:
-                mark_removed_from_kitty(card, to_lower = False)
+                mark_removed_from_kitty(card, highlight = 1 + (card == self.dealer_removed_from_kitty[-1]))
         elif self.trick_number == 0:
             #Show the exchanges with the kitty by the dealer
             for card in self.dealer_exchanged_into_kitty:
-                mark_into_kitty(card, to_lower = True)
+                mark_into_kitty(card, highlight = 1)
             #Show cards that the dealer gets back
             for card in [item for sublist in self.dealer_removed_from_kitty for item in sublist]:
-                mark_removed_from_kitty(card, to_lower = True)
+                mark_removed_from_kitty(card, highlight = 1)
             #Show the current trick if any cards have been played
-            mark_trick(lead_player, None, current_trick, to_lower = False)
+            mark_trick(lead_player, None, current_trick, highlight = 2)
         elif len(current_trick) == 0:
             #Show the previous trick in upper
-            mark_trick(previous_trick_leader, lead_player, previous_trick, to_lower = False)
+            mark_trick(previous_trick_leader, lead_player, previous_trick, highlight = 2)
         else:
             #Show the previous trick in lower and the current trick in upper
-            mark_trick(previous_trick_leader, lead_player, previous_trick, to_lower = True)
-            mark_trick(lead_player, None, current_trick, to_lower = False)
+            mark_trick(previous_trick_leader, lead_player, previous_trick, highlight = 1)
+            mark_trick(lead_player, None, current_trick, highlight = 2)
         #Show turn marker in history
         if self.trick_number < 16:
             s["history"][self.trick_number]["header"] = str(self.trick_number).rjust(3)
@@ -468,6 +512,14 @@ class GameState:
                 return True
         return False
 
+class GameStateTextDisplay:
+    #Class for abstracting how the game state is displayed as text
+    #Easier to use different formatting or more advanced display strategies in the future
+    def __init__(self):
+        pass
+    def print_game_state(self, game_state: GameState, probability_distribtion):
+        print(game_state.formatted_string_2())
+
 def is_better_score(score1, score2, player_index):
     #Compares two scores for a specific player index
     #If score1 is better than score2 for that player, return True, else False
@@ -497,7 +549,7 @@ class Manager:
         players = [
             RandomMoveAgent("RandomMoveAgent_A"),
             RandomMoveAgent("RandomMoveAgent_B"),
-            RandomMoveAgent("RandomMoveAgent_C")
+            HumanAgent("HumanAgent_C")
         ]
         self.players = players
     
@@ -509,15 +561,34 @@ class Manager:
         #Returns a copy of the game state with information not known to the specified player removed or obfuscated
         stripped_state = game_state.copy()
         #Remove information about exchanges; unknown cards replaced with None
-        for i in range(len(stripped_state.starting_exchanges)):
-            high_player, card_given, low_player, card_returned = stripped_state.starting_exchanges[i]
+        for i in range(len(stripped_state.starting_exchanges_complete)):
+            high_player, card_given, low_player, card_returned = stripped_state.starting_exchanges_complete[i]
             if player_index not in [high_player, low_player]:
-                stripped_state.starting_exchanges[i] = (high_player, None, low_player, None)
-            
+                stripped_state.starting_exchanges_complete[i] = (high_player, None, low_player, None)
+        #Remove information about dealer exchanges with kitty; unknown cards replaced with None
+        if player_index != DEALER:
+            for i in range(len(stripped_state.dealer_exchanged_into_kitty)):
+                stripped_state.dealer_exchanged_into_kitty[i] = None
+            for i in range(len(stripped_state.dealer_removed_from_kitty)):
+                for j in range(len(stripped_state.dealer_removed_from_kitty[i])):
+                    stripped_state.dealer_removed_from_kitty[i][j] = None
+        #Remove information about revealed kitty cards; unknown cards replaced with None
+        if player_index != DEALER:
+            for i in range(len(stripped_state.dealer_revealed_kitty_cards)):
+                player_seeing_card, card_shown = stripped_state.dealer_revealed_kitty_cards[i]
+                if player_seeing_card != player_index:
+                    stripped_state.dealer_revealed_kitty_cards[i] = (player_seeing_card, None)
+        #Remove information about other players hands
+        for player in range(3):
+            if player != player_index:
+                stripped_state.hands[player] = [[] for _ in range(4)]
+        #Remove information about the kitty unless the player is dealer and they have already exchanged cards with the kitty
+        if player_index != DEALER or stripped_state.kitty_exchange_complete_flag == False:
+            stripped_state.kitty = [[] for _ in range(4)]
         return stripped_state
 
     def play_game(self, eldest: int, starting_exchanges: list[int], seed = None):
-        print_every_move = False
+        print_every_move = True
         ordered_players = [self.players[(eldest + i) % 3] for i in range(3)]
         ordered_starting_exchanges = [starting_exchanges[(eldest + i) % 3] for i in range(3)]
         print(f"Ordered players: {[player.name for player in ordered_players]}, Starting exchanges: {ordered_starting_exchanges}")
@@ -532,21 +603,18 @@ class Manager:
         while game_state.trick_number < 16:
             legal_moves = game_state.generate_legal_moves()
             current_player = game_state.current_player
-            if print_every_move:
-                print(f"{['Eldest', 'Middle', 'Dealer'][current_player]}: {ordered_players[current_player].name}, Legal moves: {', '.join([game_state.card_to_string(move) for move in legal_moves])}")
-            #wait for the user to press enter before continuing to the next move, so we can observe the game play
-            # input("Press Enter to continue to the next move...")
             #Create a copy of the game state for the player to use, obsfucating information that they should not know
-            player_game_state = game_state.copy()
-            #Remove information not known to the player
-            #TODO
+            player_game_state = self.strip_game_state_for_player(game_state, current_player)
+            if print_every_move:
+                print(player_game_state.formatted_string_2())
+                print(f"{['Eldest', 'Middle', 'Dealer'][current_player]}: {ordered_players[current_player].name}, Legal moves: {', '.join([game_state.card_to_string(move) for move in legal_moves])}")
+                # input("Press Enter to continue to the next move...")
             #Feed the known information to the player agent to choose a move
             chosen_move = ordered_players[current_player].choose_move(player_game_state, legal_moves)
             if print_every_move:
                 print(f"{['Eldest', 'Middle', 'Dealer'][current_player]}: {ordered_players[current_player].name} plays {game_state.card_to_string(chosen_move)}")
             game_state.play_card(chosen_move)
-            if print_every_move or game_state.trick_number == 16:
-                print(game_state.formatted_string_2())
+        print(game_state.formatted_string_2())
             
 
 
@@ -589,6 +657,11 @@ class Agent:
     #An agent is a superclass that knows know to take in a game state (with incomplete information) from the supervisor and return a move
     def __init__(self, name: str):
         self.name = name
+        #Probability that each of the 52 cards is in each location, tracked by the Agent
+
+        self.distribution = {
+            0:[]
+        }
 
     def choose_move(self, game_state: GameState, legal_moves: list[int]) -> int:
         #We always assume that we are the current player when choosing a move
@@ -616,10 +689,55 @@ class HumanAgent(Agent):
 #     if (i + 1) % 16 == 0:
 #         print()
 
-manager = Manager()
-for seed in range(1000, 1400):
-    #set random seed for reproducibility
-    manager.play_game(eldest=0, starting_exchanges=[3, -1, -2], seed=seed)
+# manager = Manager()
+# for seed in range(1001, 1400):
+#     #set random seed for reproducibility
+#     manager.play_game(eldest=0, starting_exchanges=[3, -1, -2], seed=seed)
 
 
-'''
+import numpy as np
+from scipy.special import logsumexp
+
+import numpy as np
+from scipy.special import logsumexp
+
+def sinkhorn_log_sor_custom(A, r, c, omega=1.2, tol=1e-4, max_iter=500):
+    """
+    Normalizes A such that row sums = r and column sums = c.
+    r: array of shape (M,)
+    c: array of shape (N,)
+    """
+    M, N = A.shape
+    C = -np.log(np.maximum(A, 1e-100))
+    
+    # Pre-compute log-targets
+    log_r = np.log(r)
+    log_c = np.log(c)
+    
+    # Dual variables
+    f = np.zeros(M)
+    g = np.zeros(N)
+    
+    for i in range(max_iter):
+        # 1. Update Rows
+        # Ideal f: log_r - log(sum(exp(g - C)))
+        f_target = log_r - logsumexp(g[None, :] - C, axis=1)
+        f = (1 - omega) * f + omega * f_target
+        
+        # 2. Update Columns
+        # Ideal g: log_c - log(sum(exp(f - C)))
+        g_target = log_c - logsumexp(f[:, None] - C, axis=0)
+        g = (1 - omega) * g + omega * g_target
+        
+        # 3. Convergence check
+        # Compute current row sums to check error
+        log_row_sums = logsumexp(f[:, None] + g[None, :] - C, axis=1)
+        error = np.linalg.norm(np.exp(log_row_sums) - r, ord=1)
+        
+        if error < tol:
+            print(f"Converged in {i+1} iterations with error {error:.4e}")
+            break
+            
+    return np.exp(f[:, None] + g[None, :] - C)
+
+print(sinkhorn_log_sor_custom(np.array([[0.5, 0.5, 0.5, 0.5], [0.5, 0.5, 0.5, 0.5]]), r=np.array([3, 1]), c=np.array([1, 1, 1, 1]), omega=1.3))
