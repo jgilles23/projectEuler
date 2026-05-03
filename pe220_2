@@ -1,0 +1,92 @@
+#Vectors of the form (X, Y, Theta, Steps)
+depth_goal = 50
+step_goal = 10**12
+print_flag = depth_goal <= 3
+
+#These are the baseline function required to make the rest of the function work
+
+def rotate_space_R(vector):
+    return (vector[1], -vector[0], (vector[2] + 1)%4, vector[3])
+
+def plus(vector, other):
+    input_vector = vector
+    while vector[2] != 0:
+        vector = rotate_space_R(vector)
+    vector = (vector[0] + other[0], vector[1] + other[1], other[2], vector[3] + other[3])
+    for _ in range(input_vector[2]):
+        vector = rotate_space_R(vector)
+    return vector
+
+def R(vector, depth):
+    return (0, 0, 1, 0)
+def L(vector, depth):
+    return (0, 0, 3, 0)
+def F(vector, depth):
+    return (0, 1, 0, 1)
+def n(vector, depth):
+    return (0, 0, 0, 0)
+
+# "a" → "aRbFR"
+# "b" → "LFaLb"
+#There are two types of returns, return where we are below the step goal
+#And returns were we are at the step goal
+#Nothing should ever return a vector that is above the step goal
+
+
+def plus_letter(vector, depth, functions):
+    input_vector = vector
+    delta_vector = (0,0,0,0)
+    #check the depth and iterate
+    if depth >= depth_goal:
+        return delta_vector
+    depth += 1
+    #Iterate through the functions
+    for f in functions + [n]:
+        if vector[3] == step_goal:
+            if print_flag:
+                print(f"{'- '*depth}Reached step goal with vector {vector} at depth {depth}, returning delta {delta_vector}")
+            return delta_vector
+        elif vector[3] > step_goal:
+            raise Exception(f"Exceeded step goal with vector {vector} at depth {depth}")
+        #Print for debugging
+        if print_flag:
+            s = f"{'- '*depth}{f.__name__}".ljust(12,".") + f" vector {vector}".ljust(25,".") + f" delta {delta_vector}".ljust(25,".")
+            if f.__name__ == "n":
+                s += f" RETURNING"
+            print(s)
+        #Calculate the new vector and the delta vector
+        return_vector = f(vector, depth)
+        vector = plus(vector, return_vector)
+        delta_vector = plus(delta_vector, return_vector)
+    return delta_vector
+
+def plus_letter_hashed(vector, depth, functions, lookup_list):
+    input_vector = vector
+    if lookup_list[depth] is not None:
+        delta_vector = lookup_list[depth]
+        vector = plus(vector, delta_vector)
+        if vector[3] < step_goal:
+            return delta_vector
+    #Otherwise need to compute the actual vector
+    vector = input_vector
+    delta_vector = plus_letter(vector, depth, functions)
+    vector = plus(vector, delta_vector)
+    #Found the answer, return the delta
+    if vector[3] == step_goal:
+        return delta_vector
+    #Save the delta in the lookup list
+    lookup_list[depth] = delta_vector
+    return delta_vector
+
+a_lookup = [None]*(depth_goal+1)
+b_lookup = [None]*(depth_goal+1)
+
+def a(vector, depth=0):
+    return plus_letter_hashed(vector, depth, [a, R, b, F, R], a_lookup)
+
+def b(vector, depth=0):
+    return plus_letter_hashed(vector, depth, [L, F, a, L, b], b_lookup)
+
+output_vector = plus_letter((0,0,0,0), -1, [F, a])
+print(output_vector)
+print(str(output_vector[0]) + "," + str(output_vector[1]))
